@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package gobatis
+package manager
 
 import (
 	"github.com/xfali/gobatis/v2/errors"
@@ -31,7 +31,7 @@ type ManagerRegistry interface {
 	RegisterManager(mgr Manager) error
 
 	FindManager(format string) (Manager, bool)
-	
+
 	ScanMapperFile(dir string) error
 }
 
@@ -54,7 +54,20 @@ func initGlobalMgrRegistry() *defaultManagerRegistry {
 	return m
 }
 
-var globalMgrRegistry = initGlobalMgrRegistry()
+func init() {
+	globalInitOnec.Do(func() {
+		globalMgrRegistry = NewManagerRegistry()
+		globalParseRegistry = parser.NewRegistry()
+		_ = globalMgrRegistry.RegisterManager(xml.NewManager(globalParseRegistry))
+		_ = globalMgrRegistry.RegisterManager(template.NewManager(globalParseRegistry))
+	})
+}
+
+var (
+	globalInitOnec      = sync.Once{}
+	globalParseRegistry parser.Registry
+	globalMgrRegistry   ManagerRegistry
+)
 
 func (m *defaultManagerRegistry) RegisterManager(mgr Manager) error {
 	m.locker.Lock()
@@ -98,6 +111,14 @@ func (m *defaultManagerRegistry) ScanMapperFile(dir string) error {
 		}
 		return nil
 	})
+}
+
+func GetGlobalParserRegistry() parser.Registry {
+	return globalParseRegistry
+}
+
+func GetGlobalManagerRegistry() ManagerRegistry {
+	return globalMgrRegistry
 }
 
 func RegisterManager(mgr Manager) error {

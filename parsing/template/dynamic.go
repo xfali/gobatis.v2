@@ -19,11 +19,10 @@ package template
 
 import (
 	"fmt"
+	"github.com/xfali/gobatis/v2/parsing/parser"
 	"strings"
 	"text/template"
 	"time"
-
-	"github.com/xfali/gobatis/v2/parsing/sqlparser"
 )
 
 const (
@@ -93,10 +92,10 @@ type CommonDynamic struct {
 	index    int
 	keys     []string
 	paramMap map[string]interface{}
-	holder   sqlparser.Holder
+	holder   parser.Holder
 }
 
-func CreateDynamicHandler(holder sqlparser.Holder) Dynamic {
+func CreateDynamicHandler(holder parser.Holder) Dynamic {
 	return &CommonDynamic{
 		index:    0,
 		keys:     nil,
@@ -202,7 +201,7 @@ func (dynamic *CommonDynamic) format(s string) (string, []interface{}) {
 }
 
 func selectDynamic(driverName string) Dynamic {
-	if h, ok := sqlparser.GetMarker(driverName); ok {
+	if h, ok := parser.GetHolder(driverName); ok {
 		return dynamicFac(h)
 	}
 	return gDummyDynamic
@@ -270,6 +269,6 @@ func getPlaceHolderKey(index int) string {
 
 var dynamicFac = CreateDynamicHandler
 
-func SetDynamicFactory(f func(h sqlparser.Holder) Dynamic) {
+func SetDynamicFactory(f func(h parser.Holder) Dynamic) {
 	dynamicFac = f
 }

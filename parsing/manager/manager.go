@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package gobatis
+package manager
 
 import (
 	"github.com/xfali/gobatis/v2/parsing/parser"

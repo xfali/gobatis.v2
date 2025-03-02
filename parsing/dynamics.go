@@ -18,6 +18,7 @@
 package parsing
 
 import (
+	"github.com/xfali/gobatis/v2/parsing/parser"
 	"github.com/xfali/gobatis/v2/reflection"
 	reflection2 "github.com/xfali/reflection"
 	"github.com/xfali/xlog"
@@ -79,7 +80,7 @@ func (dynamicData *DynamicData) ReplaceWithMap(objParams map[string]interface{})
 	return ret
 }
 
-func (dynamicData *DynamicData) ParseMetadata(driverName string, params ...interface{}) (*sqlparser.Metadata, error) {
+func (dynamicData *DynamicData) ParseMetadata(driverName string, params ...interface{}) (*parser.Metadata, error) {
 	paramMap := reflection.ParseParams(params...)
 	sqlStr := dynamicData.ReplaceWithMap(paramMap)
 	return sqlparser.ParseWithParamMap(driverName, sqlStr, paramMap)

@@ -19,9 +19,9 @@ package v1
 
 import (
 	"context"
-	"github.com/xfali/gobatis/v2"
 	"github.com/xfali/gobatis/v2/database/factory"
 	"github.com/xfali/gobatis/v2/errors"
+	"github.com/xfali/gobatis/v2/parsing/manager"
 	"github.com/xfali/gobatis/v2/parsing/parser"
 	"github.com/xfali/gobatis/v2/parsing/sqlparser"
 	"github.com/xfali/lean/connection"
@@ -41,15 +41,18 @@ type SessionManager struct {
 	logger        xlog.Logger
 	driverName    string
 	conn          connection.Connection
+	registry      parser.Registry
 	ParserFactory ParserFactory
 }
 
 func NewSessionManager(factory factory.Factory) *SessionManager {
+	m, _ := manager.GetGlobalManagerRegistry().FindManager("xml")
 	return &SessionManager{
 		logger:        xlog.GetLogger(),
 		driverName:    factory.GetDriverName(),
 		conn:          factory.CreateConnection(),
-		ParserFactory: gobatis.DynamicParserFactory,
+		registry:      manager.GetGlobalParserRegistry(),
+		ParserFactory: m.CreateDynamicStatementParser,
 	}
 }
 
@@ -72,6 +75,7 @@ type Session struct {
 	logger        xlog.Logger
 	session       session.Session
 	driver        string
+	registry      parser.Registry
 	ParserFactory ParserFactory
 }
 
@@ -119,6 +123,7 @@ func (sm *SessionManager) NewSession() *Session {
 		logger:        xlog.GetLogger(),
 		session:       sess,
 		driver:        sm.driverName,
+		registry:      sm.registry,
 		ParserFactory: sm.ParserFactory,
 	}
 }
@@ -135,6 +140,7 @@ func (sm *SessionManager) Context(ctx context.Context) context.Context {
 		logger:        xlog.GetLogger(),
 		session:       sess,
 		driver:        sm.driverName,
+		registry:      sm.registry,
 		ParserFactory: sm.ParserFactory,
 	}
 	return context.WithValue(ctx, ContextSessionKey, sqlSess)
@@ -160,6 +166,11 @@ func (sm *SessionManager) SetParserFactory(fac ParserFactory) {
 	sm.ParserFactory = fac
 }
 
+// SetParserRegistry 修改sql解析器注册仓库，用于查找解析器
+func (sm *SessionManager) SetParserRegistry(registry parser.Registry) {
+	sm.registry = registry
+}
+
 func (s *Session) SetContext(ctx context.Context) *Session {
 	s.ctx = ctx
 	return s
@@ -172,6 +183,11 @@ func (s *Session) GetContext() context.Context {
 // SetParserFactory 修改sql解析器创建者
 func (s *Session) SetParserFactory(fac ParserFactory) {
 	s.ParserFactory = fac
+}
+
+// SetParserRegistry 修改sql解析器注册仓库
+func (s *Session) SetParserRegistry(registry parser.Registry) {
+	s.registry = registry
 }
 
 // Tx 开启事务执行语句
@@ -445,10 +461,7 @@ func (s *Session) createExec(parser parser.Parser) Runner {
 }
 
 func (s *Session) findSqlParser(sqlId string) parser.Parser {
-	ret, ok := gobatis.FindDynamicSqlParser(sqlId)
-	if !ok {
-		ret, ok = gobatis.FindTemplateSqlParser(sqlId)
-	}
+	ret, ok := s.registry.FindParser(sqlId)
 	//FIXME: 当没有查找到sqlId对应的sql语句，则尝试使用sqlId直接操作数据库
 	//该设计可能需要设计一个更合理的方式
 	if !ok {
