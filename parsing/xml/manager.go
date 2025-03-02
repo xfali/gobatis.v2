@@ -39,6 +39,28 @@ func NewManager() *Manager {
 	}
 }
 
+func (manager *Manager) SupportFileFormat() []string {
+	return []string{
+		"xml",
+	}
+}
+
+func (manager *Manager) RegisterMapperData(data []byte) error {
+	return manager.RegisterData(data)
+}
+
+func (manager *Manager) RegisterMapperFile(file string) error {
+	return manager.RegisterFile(file)
+}
+
+func (manager *Manager) FindDynamicStatementParser(sqlId string) (sqlparser.SqlParser, bool) {
+	return manager.FindSqlParser(sqlId)
+}
+
+func (manager *Manager) CreateDynamicStatementParser(sql string) (sqlparser.SqlParser, error) {
+	return &parsing.DynamicData{OriginData: sql}, nil
+}
+
 func (manager *Manager) RegisterData(data []byte) error {
 	manager.lock.Lock()
 	defer manager.lock.Unlock()

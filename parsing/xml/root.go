@@ -18,9 +18,9 @@
 package xml
 
 import (
+	"github.com/xfali/xlog"
 	"strings"
 
-	"github.com/xfali/gobatis/v2/logging"
 	"github.com/xfali/gobatis/v2/parsing"
 )
 
@@ -44,7 +44,7 @@ func (mapper *Mapper) Format() map[string]*parsing.DynamicData {
 	for _, v := range mapper.Insert {
 		key := keyPre + v.Id
 		if d, ok := ret[key]; ok {
-			logging.Warn("Insert Sql id is duplicates, id: %s, before: %s, after %s\n", v.Id, d, v.Data)
+			xlog.Warnf("Insert Sql id is duplicates, id: %s, before: %s, after %s\n", v.Id, d, v.Data)
 		}
 		d, err := ParseDynamic(strings.TrimSpace(v.Data), mapper.Sql)
 		if err == nil {
@@ -54,7 +54,7 @@ func (mapper *Mapper) Format() map[string]*parsing.DynamicData {
 	for _, v := range mapper.Update {
 		key := keyPre + v.Id
 		if d, ok := ret[key]; ok {
-			logging.Warn("Update Sql id is duplicates, id: %s, before: %s, after %s\n", v.Id, d, v.Data)
+			xlog.Warnf("Update Sql id is duplicates, id: %s, before: %s, after %s\n", v.Id, d, v.Data)
 		}
 		d, err := ParseDynamic(strings.TrimSpace(v.Data), mapper.Sql)
 		if err == nil {
@@ -64,7 +64,7 @@ func (mapper *Mapper) Format() map[string]*parsing.DynamicData {
 	for _, v := range mapper.Select {
 		key := keyPre + v.Id
 		if d, ok := ret[key]; ok {
-			logging.Warn("Select Sql id is duplicates, id: %s, before: %s, after %s\n", v.Id, d, v.Data)
+			xlog.Warnf("Select Sql id is duplicates, id: %s, before: %s, after %s\n", v.Id, d, v.Data)
 		}
 		d, err := ParseDynamic(strings.TrimSpace(v.Data), mapper.Sql)
 		if err == nil {
@@ -74,7 +74,7 @@ func (mapper *Mapper) Format() map[string]*parsing.DynamicData {
 	for _, v := range mapper.Delete {
 		key := keyPre + v.Id
 		if d, ok := ret[v.Id]; ok {
-			logging.Warn("Delete Sql id is duplicates, id: %s, before: %s, after %s\n", v.Id, d, v.Data)
+			xlog.Warnf("Delete Sql id is duplicates, id: %s, before: %s, after %s\n", v.Id, d, v.Data)
 		}
 		d, err := ParseDynamic(strings.TrimSpace(v.Data), mapper.Sql)
 		if err == nil {

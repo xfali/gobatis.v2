@@ -20,8 +20,8 @@ package xml
 import (
 	"encoding/xml"
 	"fmt"
-	"github.com/xfali/gobatis/v2/logging"
 	"github.com/xfali/gobatis/v2/parsing"
+	"github.com/xfali/xlog"
 	"strconv"
 	"strings"
 	"unicode"
@@ -93,7 +93,7 @@ func (de *If) Format(getFunc func(key string) string) string {
 	orStrs := strings.Split(de.Test, " or ")
 
 	if len(andStrs) > 1 && len(orStrs) > 1 {
-		logging.Warn(`error format. <if> element cannot both include " and " and " or "`)
+		xlog.Warnf(`error format. <if> element cannot both include " and " and " or "`)
 		return ""
 	}
 
@@ -351,7 +351,7 @@ func (d IfProcessor) EndStr() string {
 func (d IfProcessor) Parse(src string) parsing.DynamicElement {
 	v := If{}
 	if xml.Unmarshal([]byte(src), &v) != nil {
-		logging.Warn("parse if element failed")
+		xlog.Warnf("parse if element failed")
 	}
 	return &v
 }
@@ -363,7 +363,7 @@ func (d WhereProcessor) EndStr() string {
 func (d WhereProcessor) Parse(src string) parsing.DynamicElement {
 	v := Where{}
 	if xml.Unmarshal([]byte(src), &v) != nil {
-		logging.Warn("parse if element failed")
+		xlog.Warnf("parse if element failed")
 	}
 	return &v
 }
@@ -375,7 +375,7 @@ func (d SetProcessor) EndStr() string {
 func (d SetProcessor) Parse(src string) parsing.DynamicElement {
 	v := Set{}
 	if xml.Unmarshal([]byte(src), &v) != nil {
-		logging.Warn("parse if element failed")
+		xlog.Warnf("parse if element failed")
 	}
 	return &v
 }
@@ -387,7 +387,7 @@ func (d IncludeProcessor) EndStr() string {
 func (d IncludeProcessor) Parse(src string) parsing.DynamicElement {
 	v := Include{}
 	if xml.Unmarshal([]byte(src), &v) != nil {
-		logging.Warn("parse if element failed")
+		xlog.Warnf("parse if element failed")
 	}
 	return &v
 }
@@ -399,7 +399,7 @@ func (d ChooseProcessor) EndStr() string {
 func (d ChooseProcessor) Parse(src string) parsing.DynamicElement {
 	v := Choose{}
 	if xml.Unmarshal([]byte(src), &v) != nil {
-		logging.Warn("parse if element failed")
+		xlog.Warnf("parse if element failed")
 	}
 	return &v
 }
@@ -411,7 +411,7 @@ func (d ForeachProcessor) EndStr() string {
 func (d ForeachProcessor) Parse(src string) parsing.DynamicElement {
 	v := Foreach{}
 	if xml.Unmarshal([]byte(src), &v) != nil {
-		logging.Warn("parse if element failed")
+		xlog.Warnf("parse if element failed")
 	}
 	return &v
 }
@@ -439,7 +439,7 @@ func ParseDynamic(src string, sqls []Sql) (*parsing.DynamicData, error) {
 			if index != -1 {
 				subStr = subStr[:index]
 			}
-			logging.Debug("Found element : %s\n", subStr)
+			xlog.Debugf("Found element : %s\n", subStr)
 			if typeProcessor, ok := gProcessorMap[subStr]; ok {
 				subStr = src[start:]
 				endStr := typeProcessor.EndStr()

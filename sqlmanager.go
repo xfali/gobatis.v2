@@ -31,44 +31,105 @@ type sqlManager struct {
 	templateSqlMgr *template.Manager
 }
 
-var sqlMgr = sqlManager{
-	dynamicSqlMgr:  xml.NewManager(),
-	templateSqlMgr: template.NewManager(),
+func NewSqlManager() *sqlManager {
+	return &sqlManager{
+		dynamicSqlMgr:  xml.NewManager(),
+		templateSqlMgr: template.NewManager(),
+	}
+}
+
+var globalSqlMgr = NewSqlManager()
+
+func (m *sqlManager) RegisterSql(sqlId string, sql string) error {
+	return m.dynamicSqlMgr.RegisterSql(sqlId, sql)
+}
+
+func (m *sqlManager) UnregisterSql(sqlId string) {
+	m.dynamicSqlMgr.UnregisterSql(sqlId)
+}
+
+func (m *sqlManager) RegisterMapperData(data []byte) error {
+	return m.dynamicSqlMgr.RegisterData(data)
+}
+
+func (m *sqlManager) RegisterMapperFile(file string) error {
+	return m.dynamicSqlMgr.RegisterFile(file)
+}
+
+func (m *sqlManager) FindDynamicSqlParser(sqlId string) (sqlparser.SqlParser, bool) {
+	return m.dynamicSqlMgr.FindSqlParser(sqlId)
+}
+
+func (m *sqlManager) RegisterTemplateData(data []byte) error {
+	return m.templateSqlMgr.RegisterData(data)
+}
+
+func (m *sqlManager) RegisterTemplateFile(file string) error {
+	return m.templateSqlMgr.RegisterFile(file)
+}
+
+func (m *sqlManager) FindTemplateSqlParser(sqlId string) (sqlparser.SqlParser, bool) {
+	return m.templateSqlMgr.FindSqlParser(sqlId)
+}
+
+func (m *sqlManager) ScanMapperFile(dir string) error {
+	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			filename := filepath.Base(path)
+			length := len(filename)
+			if length > 4 {
+				if filename[length-4:] == ".xml" {
+					err := m.RegisterMapperFile(path)
+					if err != nil {
+						return err
+					}
+				}
+				if filename[length-4:] == ".tpl" {
+					err := m.RegisterTemplateFile(path)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return nil
+	})
 }
 
 func RegisterSql(sqlId string, sql string) error {
-	return sqlMgr.dynamicSqlMgr.RegisterSql(sqlId, sql)
+	return globalSqlMgr.RegisterSql(sqlId, sql)
 }
 
 func UnregisterSql(sqlId string) {
-	sqlMgr.dynamicSqlMgr.UnregisterSql(sqlId)
+	globalSqlMgr.UnregisterSql(sqlId)
 }
 
 func RegisterMapperData(data []byte) error {
-	return sqlMgr.dynamicSqlMgr.RegisterData(data)
+	return globalSqlMgr.RegisterMapperData(data)
 }
 
 func RegisterMapperFile(file string) error {
-	return sqlMgr.dynamicSqlMgr.RegisterFile(file)
+	return globalSqlMgr.RegisterMapperFile(file)
 }
 
 func FindDynamicSqlParser(sqlId string) (sqlparser.SqlParser, bool) {
-	return sqlMgr.dynamicSqlMgr.FindSqlParser(sqlId)
+	return globalSqlMgr.FindDynamicSqlParser(sqlId)
 }
 
 func RegisterTemplateData(data []byte) error {
-	return sqlMgr.templateSqlMgr.RegisterData(data)
+	return globalSqlMgr.RegisterTemplateData(data)
 }
 
 func RegisterTemplateFile(file string) error {
-	return sqlMgr.templateSqlMgr.RegisterFile(file)
+	return globalSqlMgr.RegisterTemplateFile(file)
 }
 
 func FindTemplateSqlParser(sqlId string) (sqlparser.SqlParser, bool) {
-	return sqlMgr.templateSqlMgr.FindSqlParser(sqlId)
+	return globalSqlMgr.FindTemplateSqlParser(sqlId)
 }
-
-type ParserFactory func(sql string) (sqlparser.SqlParser, error)
 
 func DynamicParserFactory(sql string) (sqlparser.SqlParser, error) {
 	return &parsing.DynamicData{OriginData: sql}, nil
@@ -79,28 +140,5 @@ func TemplateParserFactory(sql string) (sqlparser.SqlParser, error) {
 }
 
 func ScanMapperFile(dir string) error {
-	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			filename := filepath.Base(path)
-			length := len(filename)
-			if length > 4 {
-				if filename[length-4:] == ".xml" {
-					err := RegisterMapperFile(path)
-					if err != nil {
-						return err
-					}
-				}
-				if filename[length-4:] == ".tpl" {
-					err := RegisterTemplateFile(path)
-					if err != nil {
-						return err
-					}
-				}
-			}
-		}
-		return nil
-	})
+	return globalSqlMgr.ScanMapperFile(dir)
 }

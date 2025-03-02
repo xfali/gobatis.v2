@@ -19,11 +19,10 @@ package xml
 
 import (
 	"encoding/xml"
+	"github.com/xfali/xlog"
 	"io"
 	"io/ioutil"
 	"os"
-
-	"github.com/xfali/gobatis/v2/logging"
 )
 
 const (
@@ -33,13 +32,13 @@ const (
 func ParseFile(path string) (*Mapper, error) {
 	file, err := os.Open(path) // For read access.
 	if err != nil {
-		logging.Warn("error: %v", err)
+		xlog.Warnf("error: %v", err)
 		return nil, err
 	}
 	defer file.Close()
 	data, err := ioutil.ReadAll(file)
 	if err != nil {
-		logging.Warn("error: %v", err)
+		xlog.Warnf("error: %v", err)
 		return nil, err
 	}
 
@@ -50,7 +49,7 @@ func Parse(data []byte) (*Mapper, error) {
 	v := Mapper{}
 	err := xml.Unmarshal(data, &v)
 	if err != nil {
-		logging.Warn("error: %v", err)
+		xlog.Warnf("error: %v", err)
 		return nil, err
 	}
 	return &v, nil
@@ -71,19 +70,19 @@ func parseInner(reader io.Reader) {
 				switch t := token.(type) {
 				case xml.StartElement:
 					startElement := xml.StartElement(t)
-					logging.Debug("start: ", startElement.Name.Local)
+					xlog.Debugf("start: ", startElement.Name.Local)
 					strName = startElement.Name.Local
 				case xml.EndElement:
 					endElement := xml.EndElement(t)
-					logging.Debug("end: ", endElement.Name.Local)
+					xlog.Debugf("end: ", endElement.Name.Local)
 				case xml.CharData:
 					data := xml.CharData(t)
 					str := string(data)
 					switch strName {
 					case "City":
-						logging.Debug("city:", str)
+						xlog.Debugf("city:", str)
 					case "first":
-						logging.Debug("first: ", str)
+						xlog.Debugf("first: ", str)
 					}
 				}
 				break
@@ -96,7 +95,7 @@ func getStartElementName(token xml.Token) *xml.Name {
 	switch t := token.(type) {
 	case xml.StartElement:
 		startElement := xml.StartElement(t)
-		logging.Debug("start: ", startElement.Name.Local)
+		xlog.Debugf("start: ", startElement.Name.Local)
 		return &startElement.Name
 	}
 	return nil

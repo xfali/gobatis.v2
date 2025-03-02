@@ -89,6 +89,51 @@ func NewManager() *Manager {
 	}
 }
 
+func (manager *Manager) SupportFileFormat() []string {
+	return []string{
+		"tpl",
+	}
+}
+
+func (manager *Manager) RegisterSql(sqlId string, sql string) error {
+	manager.lock.Lock()
+	defer manager.lock.Unlock()
+
+	if _, ok := manager.sqlMap[sqlId]; ok {
+		return errors.SqlIdDuplicates
+	} else {
+		dd, err := CreateParser([]byte(sql))
+		if err != nil {
+			return err
+		}
+		manager.sqlMap[sqlId] = dd
+	}
+	return nil
+}
+
+func (manager *Manager) UnregisterSql(sqlId string) {
+	manager.lock.Lock()
+	defer manager.lock.Unlock()
+
+	delete(manager.sqlMap, sqlId)
+}
+
+func (manager *Manager) RegisterMapperData(data []byte) error {
+	return manager.RegisterData(data)
+}
+
+func (manager *Manager) RegisterMapperFile(file string) error {
+	return manager.RegisterFile(file)
+}
+
+func (manager *Manager) FindDynamicStatementParser(sqlId string) (sqlparser.SqlParser, bool) {
+	return manager.FindSqlParser(sqlId)
+}
+
+func (manager *Manager) CreateDynamicStatementParser(sql string) (sqlparser.SqlParser, error) {
+	return CreateParser([]byte(sql))
+}
+
 func (manager *Manager) RegisterData(data []byte) error {
 	manager.lock.Lock()
 	defer manager.lock.Unlock()
