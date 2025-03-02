@@ -18,9 +18,16 @@ package parser
 
 import (
 	"strconv"
+	"strings"
 )
 
 type Holder func(int) string
+
+type ParamPlaceHolder interface {
+	GetByIndex(index int) string
+	GetByName(name string) string
+	Replace(s, old string, index int, name string) string
+}
 
 var gHolderMap = map[string]Holder{
 	"mysql":    MysqlHolder,    //mysql
@@ -51,10 +58,55 @@ func MysqlHolder(int) string {
 	return "?"
 }
 
+type MysqlParamPlaceHolder struct {
+}
+
+func (h *MysqlParamPlaceHolder) GetByIndex(index int) string {
+	return MysqlHolder(index)
+}
+
+func (h *MysqlParamPlaceHolder) GetByName(name string) string {
+	return MysqlHolder(0)
+}
+
+func (h *MysqlParamPlaceHolder) Replace(s, old string, index int, name string) string {
+	return strings.Replace(s, old, h.GetByIndex(index), -1)
+}
+
 func PostgresHolder(i int) string {
 	return "$" + strconv.Itoa(i)
 }
 
+type PostgresParamPlaceHolder struct {
+}
+
+func (h *PostgresParamPlaceHolder) GetByIndex(index int) string {
+	return PostgresHolder(index)
+}
+
+func (h *PostgresParamPlaceHolder) GetByName(name string) string {
+	return "?"
+}
+
+func (h *PostgresParamPlaceHolder) Replace(s, old string, index int, name string) (string, bool) {
+	return strings.Replace(s, old, h.GetByIndex(index), 1), true
+}
+
 func Oci8Holder(i int) string {
 	return ":" + strconv.Itoa(i)
+}
+
+type Oci8ParamPlaceHolder struct {
+}
+
+func (h *Oci8ParamPlaceHolder) GetByIndex(index int) string {
+	return Oci8Holder(index)
+}
+
+func (h *Oci8ParamPlaceHolder) GetByName(name string) string {
+	return "?"
+}
+
+func (h *Oci8ParamPlaceHolder) Replace(s, old string, index int, name string) string {
+	return strings.Replace(s, old, h.GetByIndex(index), 1)
 }

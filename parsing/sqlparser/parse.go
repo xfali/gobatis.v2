@@ -164,7 +164,7 @@ func ParseWithParamMap(driverName, sql string, params map[string]interface{}) (*
 							oldStr := "#{" + varName + "}"
 							index++
 							h := holder(index)
-							ret.PrepareSql = strings.Replace(ret.PrepareSql, oldStr, h, -1)
+							ret.PrepareSql = strings.Replace(ret.PrepareSql, oldStr, h, 1)
 							ret.Params = append(ret.Params, value)
 						}
 					} else {

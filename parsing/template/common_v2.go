@@ -20,7 +20,7 @@ package template
 import (
 	"fmt"
 	"github.com/Masterminds/sprig/v3"
-	"github.com/xfali/gobatis/v2/parsing/sqlparser"
+	"github.com/xfali/gobatis/v2/parsing/parser"
 	"strings"
 	"text/template"
 )
@@ -29,7 +29,7 @@ type CommonV2Dynamic struct {
 	index    int
 	keys     []string
 	paramMap map[string]interface{}
-	holder   sqlparser.Holder
+	holder   parser.Holder
 }
 
 func (d *CommonV2Dynamic) getFuncMap() template.FuncMap {
@@ -114,7 +114,7 @@ func (d *CommonV2Dynamic) format(s string) (string, []interface{}) {
 	return s, params
 }
 
-func CreateV2DynamicHandler(h sqlparser.Holder) Dynamic {
+func CreateV2DynamicHandler(h parser.Holder) Dynamic {
 	return &CommonV2Dynamic{
 		index:    0,
 		keys:     nil,
