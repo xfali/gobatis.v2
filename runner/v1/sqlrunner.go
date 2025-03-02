@@ -22,6 +22,7 @@ import (
 	"github.com/xfali/gobatis/v2"
 	"github.com/xfali/gobatis/v2/database/factory"
 	"github.com/xfali/gobatis/v2/errors"
+	"github.com/xfali/gobatis/v2/parsing/parser"
 	"github.com/xfali/gobatis/v2/parsing/sqlparser"
 	"github.com/xfali/lean/connection"
 	"github.com/xfali/lean/mapping"
@@ -34,7 +35,7 @@ const (
 	ContextSessionKey = "__gobatis_session__"
 )
 
-type ParserFactory func(sql string) (sqlparser.SqlParser, error)
+type ParserFactory func(sql string) (parser.Parser, error)
 
 type SessionManager struct {
 	logger        xlog.Logger
@@ -75,14 +76,14 @@ type Session struct {
 }
 
 type BaseRunner struct {
-	session   session.Session
-	sqlParser sqlparser.SqlParser
-	action    string
-	metadata  *sqlparser.Metadata
-	logger    xlog.Logger
-	driver    string
-	ctx       context.Context
-	runner    Runner
+	session  session.Session
+	parser   parser.Parser
+	action   string
+	metadata *parser.Metadata
+	logger   xlog.Logger
+	driver   string
+	ctx      context.Context
+	runner   Runner
 }
 
 type SelectRunner struct {
@@ -226,18 +227,18 @@ func (baseRunner *BaseRunner) Param(params ...interface{}) Runner {
 	//md := cache.FindMetadata(key)
 	//var err error
 	//if md == nil {
-	//    md, err := baseRunner.sqlParser.Parse(params...)
+	//    md, err := baseRunner.parser.Parse(params...)
 	//    if err == nil {
 	//        cache.CacheMetadata(key, md)
 	//    }
 	//}
 
-	if baseRunner.sqlParser == nil {
+	if baseRunner.parser == nil {
 		baseRunner.logger.Warnf(errors.ParseParserNilError.Error())
 		return baseRunner
 	}
 
-	md, err := baseRunner.sqlParser.ParseMetadata(baseRunner.driver, params...)
+	md, err := baseRunner.parser.ParseMetadata(baseRunner.driver, params...)
 
 	if err == nil {
 		if baseRunner.action == "" || baseRunner.action == md.Action {
@@ -383,67 +384,67 @@ func (baseRunner *BaseRunner) LastInsertId() int64 {
 	return -1
 }
 
-func (s *Session) createSelect(parser sqlparser.SqlParser) Runner {
+func (s *Session) createSelect(parser parser.Parser) Runner {
 	ret := &SelectRunner{}
 	ret.action = sqlparser.SELECT
 	ret.logger = s.logger
 	ret.session = s.session
-	ret.sqlParser = parser
+	ret.parser = parser
 	ret.ctx = s.ctx
 	ret.driver = s.driver
 	ret.runner = ret
 	return ret
 }
 
-func (s *Session) createUpdate(parser sqlparser.SqlParser) Runner {
+func (s *Session) createUpdate(parser parser.Parser) Runner {
 	ret := &UpdateRunner{}
 	ret.action = sqlparser.UPDATE
 	ret.logger = s.logger
 	ret.session = s.session
-	ret.sqlParser = parser
+	ret.parser = parser
 	ret.ctx = s.ctx
 	ret.driver = s.driver
 	ret.runner = ret
 	return ret
 }
 
-func (s *Session) createDelete(parser sqlparser.SqlParser) Runner {
+func (s *Session) createDelete(parser parser.Parser) Runner {
 	ret := &DeleteRunner{}
 	ret.action = sqlparser.DELETE
 	ret.logger = s.logger
 	ret.session = s.session
-	ret.sqlParser = parser
+	ret.parser = parser
 	ret.ctx = s.ctx
 	ret.driver = s.driver
 	ret.runner = ret
 	return ret
 }
 
-func (s *Session) createInsert(parser sqlparser.SqlParser) Runner {
+func (s *Session) createInsert(parser parser.Parser) Runner {
 	ret := &InsertRunner{}
 	ret.action = sqlparser.INSERT
 	ret.logger = s.logger
 	ret.session = s.session
-	ret.sqlParser = parser
+	ret.parser = parser
 	ret.ctx = s.ctx
 	ret.driver = s.driver
 	ret.runner = ret
 	return ret
 }
 
-func (s *Session) createExec(parser sqlparser.SqlParser) Runner {
+func (s *Session) createExec(parser parser.Parser) Runner {
 	ret := &ExecRunner{}
 	ret.action = ""
 	ret.logger = s.logger
 	ret.session = s.session
-	ret.sqlParser = parser
+	ret.parser = parser
 	ret.ctx = s.ctx
 	ret.driver = s.driver
 	ret.runner = ret
 	return ret
 }
 
-func (s *Session) findSqlParser(sqlId string) sqlparser.SqlParser {
+func (s *Session) findSqlParser(sqlId string) parser.Parser {
 	ret, ok := gobatis.FindDynamicSqlParser(sqlId)
 	if !ok {
 		ret, ok = gobatis.FindTemplateSqlParser(sqlId)

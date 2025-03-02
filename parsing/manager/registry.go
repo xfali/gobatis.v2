@@ -19,6 +19,7 @@ package gobatis
 
 import (
 	"github.com/xfali/gobatis/v2/errors"
+	"github.com/xfali/gobatis/v2/parsing/parser"
 	"github.com/xfali/gobatis/v2/parsing/template"
 	"github.com/xfali/gobatis/v2/parsing/xml"
 	"os"
@@ -26,27 +27,36 @@ import (
 	"sync"
 )
 
-type ManagerRegistry struct {
+type ManagerRegistry interface {
+	RegisterManager(mgr Manager) error
+
+	FindManager(format string) (Manager, bool)
+	
+	ScanMapperFile(dir string) error
+}
+
+type defaultManagerRegistry struct {
 	dynamicStmtMgrs map[string]Manager
 	locker          sync.RWMutex
 }
 
-func NewManagerRegistry() *ManagerRegistry {
-	return &ManagerRegistry{
+func NewManagerRegistry() *defaultManagerRegistry {
+	return &defaultManagerRegistry{
 		dynamicStmtMgrs: map[string]Manager{},
 	}
 }
 
-func initGlobalMgrRegistry() *ManagerRegistry {
+func initGlobalMgrRegistry() *defaultManagerRegistry {
 	m := NewManagerRegistry()
-	_ = m.RegisterManager(xml.NewManager())
-	_ = m.RegisterManager(template.NewManager())
+	pr := parser.NewRegistry()
+	_ = m.RegisterManager(xml.NewManager(pr))
+	_ = m.RegisterManager(template.NewManager(pr))
 	return m
 }
 
 var globalMgrRegistry = initGlobalMgrRegistry()
 
-func (m *ManagerRegistry) RegisterManager(mgr Manager) error {
+func (m *defaultManagerRegistry) RegisterManager(mgr Manager) error {
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
@@ -61,7 +71,7 @@ func (m *ManagerRegistry) RegisterManager(mgr Manager) error {
 	return nil
 }
 
-func (m *ManagerRegistry) FindManager(format string) (Manager, bool) {
+func (m *defaultManagerRegistry) FindManager(format string) (Manager, bool) {
 	m.locker.RLock()
 	defer m.locker.RUnlock()
 
@@ -69,7 +79,7 @@ func (m *ManagerRegistry) FindManager(format string) (Manager, bool) {
 	return v, ok
 }
 
-func (m *ManagerRegistry) ScanMapperFile(dir string) error {
+func (m *defaultManagerRegistry) ScanMapperFile(dir string) error {
 	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -88,6 +98,14 @@ func (m *ManagerRegistry) ScanMapperFile(dir string) error {
 		}
 		return nil
 	})
+}
+
+func RegisterManager(mgr Manager) error {
+	return globalMgrRegistry.RegisterManager(mgr)
+}
+
+func FindManager(format string) (Manager, bool) {
+	return globalMgrRegistry.FindManager(format)
 }
 
 func ScanMapperFile(dir string) error {

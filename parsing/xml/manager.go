@@ -18,24 +18,23 @@
 package xml
 
 import (
-	"github.com/xfali/xlog"
-	"sync"
-
-	"github.com/xfali/gobatis/v2/errors"
 	"github.com/xfali/gobatis/v2/parsing"
-	"github.com/xfali/gobatis/v2/parsing/sqlparser"
+	"github.com/xfali/gobatis/v2/parsing/parser"
+	"github.com/xfali/xlog"
 )
 
 type Manager struct {
-	logger xlog.Logger
-	sqlMap map[string]*parsing.DynamicData
-	lock   sync.Mutex
+	logger   xlog.Logger
+	registry parser.Registry
 }
 
-func NewManager() *Manager {
+func NewManager(registry parser.Registry) *Manager {
+	if registry == nil {
+		registry = parser.NewRegistry()
+	}
 	return &Manager{
-		logger: xlog.GetLogger(),
-		sqlMap: map[string]*parsing.DynamicData{},
+		logger:   xlog.GetLogger(),
+		registry: registry,
 	}
 }
 
@@ -53,76 +52,60 @@ func (manager *Manager) RegisterMapperFile(file string) error {
 	return manager.RegisterFile(file)
 }
 
-func (manager *Manager) FindDynamicStatementParser(sqlId string) (sqlparser.SqlParser, bool) {
+func (manager *Manager) FindDynamicStatementParser(sqlId string) (parser.Parser, bool) {
 	return manager.FindSqlParser(sqlId)
 }
 
-func (manager *Manager) CreateDynamicStatementParser(sql string) (sqlparser.SqlParser, error) {
+func (manager *Manager) CreateDynamicStatementParser(sql string) (parser.Parser, error) {
 	return &parsing.DynamicData{OriginData: sql}, nil
 }
 
 func (manager *Manager) RegisterData(data []byte) error {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
+	return manager.registry.Direct(func(r parser.Registry) error {
+		mapper, err := Parse(data)
+		if err != nil {
+			manager.logger.Warnf("register mapper data failed: %s err: %v\n", string(data), err)
+			return err
+		}
 
-	mapper, err := Parse(data)
-	if err != nil {
-		manager.logger.Warnf("register mapper data failed: %s err: %v\n", string(data), err)
-		return err
-	}
-
-	return manager.formatMapper(mapper)
+		return manager.formatMapper(r, mapper)
+	})
 }
 
 func (manager *Manager) RegisterFile(file string) error {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
+	return manager.registry.Direct(func(r parser.Registry) error {
+		mapper, err := ParseFile(file)
+		if err != nil {
+			manager.logger.Warnf("register mapper file failed: %s err: %v\n", file, err)
+			return err
+		}
 
-	mapper, err := ParseFile(file)
-	if err != nil {
-		manager.logger.Warnf("register mapper file failed: %s err: %v\n", file, err)
-		return err
-	}
-
-	return manager.formatMapper(mapper)
+		return manager.formatMapper(r, mapper)
+	})
 }
 
-func (manager *Manager) formatMapper(mapper *Mapper) error {
+func (manager *Manager) formatMapper(registry parser.Registry, mapper *Mapper) error {
 	ret := mapper.Format()
 	for k, v := range ret {
-		if _, ok := manager.sqlMap[k]; ok {
-			return errors.SqlIdDuplicates
-		} else {
-			manager.sqlMap[k] = v
+		err := registry.AddParser(k, v)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (manager *Manager) FindSqlParser(sqlId string) (sqlparser.SqlParser, bool) {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
-
-	v, ok := manager.sqlMap[sqlId]
-	return v, ok
+func (manager *Manager) FindSqlParser(sqlId string) (parser.Parser, bool) {
+	return manager.registry.FindParser(sqlId)
 }
 
 func (manager *Manager) RegisterSql(sqlId string, sql string) error {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
-
-	if _, ok := manager.sqlMap[sqlId]; ok {
-		return errors.SqlIdDuplicates
-	} else {
-		dd := &parsing.DynamicData{OriginData: sql}
-		manager.sqlMap[sqlId] = dd
-	}
-	return nil
+	_, err := manager.registry.LoadOrCreateParser(sqlId, sql, func(statement string) (parser.Parser, error) {
+		return &parsing.DynamicData{OriginData: sql}, nil
+	})
+	return err
 }
 
 func (manager *Manager) UnregisterSql(sqlId string) {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
-
-	delete(manager.sqlMap, sqlId)
+	manager.registry.RemoveParser(sqlId)
 }

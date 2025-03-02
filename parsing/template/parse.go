@@ -18,14 +18,13 @@
 package template
 
 import (
+	"github.com/xfali/gobatis/v2/parsing/parser"
 	"github.com/xfali/xlog"
 	"io/ioutil"
 	"strings"
-	"sync"
 	"text/template"
 
 	"github.com/xfali/gobatis/v2/errors"
-	"github.com/xfali/gobatis/v2/parsing/sqlparser"
 )
 
 const (
@@ -48,7 +47,7 @@ func CreateParser(data []byte) (*Parser, error) {
 }
 
 // ParseMetadata only use first param
-func (p *Parser) ParseMetadata(driverName string, params ...interface{}) (*sqlparser.Metadata, error) {
+func (p *Parser) ParseMetadata(driverName string, params ...interface{}) (*parser.Metadata, error) {
 	if p.tpl == nil {
 		return nil, errors.ParseTemplateNilError
 	}
@@ -66,7 +65,7 @@ func (p *Parser) ParseMetadata(driverName string, params ...interface{}) (*sqlpa
 		return nil, err
 	}
 
-	ret := &sqlparser.Metadata{}
+	ret := &parser.Metadata{}
 	sql := strings.TrimSpace(b.String())
 	action := sql[:6]
 	action = strings.ToLower(action)
@@ -77,15 +76,17 @@ func (p *Parser) ParseMetadata(driverName string, params ...interface{}) (*sqlpa
 }
 
 type Manager struct {
-	logger xlog.Logger
-	sqlMap map[string]*Parser
-	lock   sync.Mutex
+	logger   xlog.Logger
+	registry parser.Registry
 }
 
-func NewManager() *Manager {
+func NewManager(registry parser.Registry) *Manager {
+	if registry == nil {
+		registry = parser.NewRegistry()
+	}
 	return &Manager{
-		logger: xlog.GetLogger(),
-		sqlMap: map[string]*Parser{},
+		logger:   xlog.GetLogger(),
+		registry: registry,
 	}
 }
 
@@ -96,26 +97,14 @@ func (manager *Manager) SupportFileFormat() []string {
 }
 
 func (manager *Manager) RegisterSql(sqlId string, sql string) error {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
-
-	if _, ok := manager.sqlMap[sqlId]; ok {
-		return errors.SqlIdDuplicates
-	} else {
-		dd, err := CreateParser([]byte(sql))
-		if err != nil {
-			return err
-		}
-		manager.sqlMap[sqlId] = dd
-	}
-	return nil
+	_, err := manager.registry.LoadOrCreateParser(sqlId, sql, func(statement string) (parser.Parser, error) {
+		return CreateParser([]byte(sql))
+	})
+	return err
 }
 
 func (manager *Manager) UnregisterSql(sqlId string) {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
-
-	delete(manager.sqlMap, sqlId)
+	manager.registry.RemoveParser(sqlId)
 }
 
 func (manager *Manager) RegisterMapperData(data []byte) error {
@@ -126,63 +115,67 @@ func (manager *Manager) RegisterMapperFile(file string) error {
 	return manager.RegisterFile(file)
 }
 
-func (manager *Manager) FindDynamicStatementParser(sqlId string) (sqlparser.SqlParser, bool) {
+func (manager *Manager) FindDynamicStatementParser(sqlId string) (parser.Parser, bool) {
 	return manager.FindSqlParser(sqlId)
 }
 
-func (manager *Manager) CreateDynamicStatementParser(sql string) (sqlparser.SqlParser, error) {
+func (manager *Manager) CreateDynamicStatementParser(sql string) (parser.Parser, error) {
 	return CreateParser([]byte(sql))
 }
 
 func (manager *Manager) RegisterData(data []byte) error {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
-
-	tpl := template.New("")
-	tpl = tpl.Funcs(dummyFuncMap)
-	tpl, err := tpl.Parse(string(data))
-	if err != nil {
-		manager.logger.Warnf("register template data failed: %s err: %v\n", string(data), err)
-		return err
-	}
-
-	ns := getNamespace(tpl)
-	tpls := tpl.Templates()
-	for _, v := range tpls {
-		if v.Name() != "" && v.Name() != namespaceTmplName {
-			manager.sqlMap[ns+v.Name()] = &Parser{tpl: v}
+	return manager.registry.Direct(func(r parser.Registry) error {
+		tpl := template.New("")
+		tpl = tpl.Funcs(dummyFuncMap)
+		tpl, err := tpl.Parse(string(data))
+		if err != nil {
+			manager.logger.Warnf("register template data failed: %s err: %v\n", string(data), err)
+			return err
 		}
-	}
 
-	return nil
+		ns := getNamespace(tpl)
+		tpls := tpl.Templates()
+		for _, v := range tpls {
+			if v.Name() != "" && v.Name() != namespaceTmplName {
+				addErr := r.AddParser(ns+v.Name(), &Parser{tpl: v})
+				if addErr != nil {
+					return addErr
+				}
+			}
+		}
+
+		return nil
+	})
 }
 
 func (manager *Manager) RegisterFile(file string) error {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
-
-	tpl := template.New("")
-	data, err := ioutil.ReadFile(file)
-	if err != nil {
-		manager.logger.Warnf("register template file failed: %s err: %v\n", file, err)
-		return err
-	}
-	tpl = tpl.Funcs(dummyFuncMap)
-	tpl, err = tpl.Parse(string(data))
-	if err != nil {
-		manager.logger.Warnf("register template file failed: %s err: %v\n", file, err)
-		return err
-	}
-
-	ns := getNamespace(tpl)
-	tpls := tpl.Templates()
-	for _, v := range tpls {
-		if v.Name() != "" && v.Name() != namespaceTmplName {
-			manager.sqlMap[ns+v.Name()] = &Parser{tpl: v}
+	return manager.registry.Direct(func(r parser.Registry) error {
+		tpl := template.New("")
+		data, err := ioutil.ReadFile(file)
+		if err != nil {
+			manager.logger.Warnf("register template file failed: %s err: %v\n", file, err)
+			return err
 		}
-	}
+		tpl = tpl.Funcs(dummyFuncMap)
+		tpl, err = tpl.Parse(string(data))
+		if err != nil {
+			manager.logger.Warnf("register template file failed: %s err: %v\n", file, err)
+			return err
+		}
 
-	return nil
+		ns := getNamespace(tpl)
+		tpls := tpl.Templates()
+		for _, v := range tpls {
+			if v.Name() != "" && v.Name() != namespaceTmplName {
+				addErr := r.AddParser(ns+v.Name(), &Parser{tpl: v})
+				if addErr != nil {
+					return addErr
+				}
+			}
+		}
+
+		return nil
+	})
 }
 
 func getNamespace(tpl *template.Template) string {
@@ -204,9 +197,11 @@ func getNamespace(tpl *template.Template) string {
 }
 
 func (manager *Manager) FindSqlParser(sqlId string) (*Parser, bool) {
-	manager.lock.Lock()
-	defer manager.lock.Unlock()
-
-	v, ok := manager.sqlMap[sqlId]
-	return v, ok
+	v, have := manager.registry.FindParser(sqlId)
+	if have {
+		if ret, ok := v.(*Parser); ok {
+			return ret, true
+		}
+	}
+	return nil, false
 }

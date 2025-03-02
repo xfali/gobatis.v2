@@ -19,7 +19,7 @@ package gobatis
 
 import (
 	"github.com/xfali/gobatis/v2/parsing"
-	"github.com/xfali/gobatis/v2/parsing/sqlparser"
+	"github.com/xfali/gobatis/v2/parsing/parser"
 	"github.com/xfali/gobatis/v2/parsing/template"
 	"github.com/xfali/gobatis/v2/parsing/xml"
 	"os"
@@ -33,8 +33,8 @@ type sqlManager struct {
 
 func NewSqlManager() *sqlManager {
 	return &sqlManager{
-		dynamicSqlMgr:  xml.NewManager(),
-		templateSqlMgr: template.NewManager(),
+		dynamicSqlMgr:  xml.NewManager(nil),
+		templateSqlMgr: template.NewManager(nil),
 	}
 }
 
@@ -56,7 +56,7 @@ func (m *sqlManager) RegisterMapperFile(file string) error {
 	return m.dynamicSqlMgr.RegisterFile(file)
 }
 
-func (m *sqlManager) FindDynamicSqlParser(sqlId string) (sqlparser.SqlParser, bool) {
+func (m *sqlManager) FindDynamicSqlParser(sqlId string) (parser.Parser, bool) {
 	return m.dynamicSqlMgr.FindSqlParser(sqlId)
 }
 
@@ -68,7 +68,7 @@ func (m *sqlManager) RegisterTemplateFile(file string) error {
 	return m.templateSqlMgr.RegisterFile(file)
 }
 
-func (m *sqlManager) FindTemplateSqlParser(sqlId string) (sqlparser.SqlParser, bool) {
+func (m *sqlManager) FindTemplateSqlParser(sqlId string) (parser.Parser, bool) {
 	return m.templateSqlMgr.FindSqlParser(sqlId)
 }
 
@@ -115,7 +115,7 @@ func RegisterMapperFile(file string) error {
 	return globalSqlMgr.RegisterMapperFile(file)
 }
 
-func FindDynamicSqlParser(sqlId string) (sqlparser.SqlParser, bool) {
+func FindDynamicSqlParser(sqlId string) (parser.Parser, bool) {
 	return globalSqlMgr.FindDynamicSqlParser(sqlId)
 }
 
@@ -127,15 +127,15 @@ func RegisterTemplateFile(file string) error {
 	return globalSqlMgr.RegisterTemplateFile(file)
 }
 
-func FindTemplateSqlParser(sqlId string) (sqlparser.SqlParser, bool) {
+func FindTemplateSqlParser(sqlId string) (parser.Parser, bool) {
 	return globalSqlMgr.FindTemplateSqlParser(sqlId)
 }
 
-func DynamicParserFactory(sql string) (sqlparser.SqlParser, error) {
+func DynamicParserFactory(sql string) (parser.Parser, error) {
 	return &parsing.DynamicData{OriginData: sql}, nil
 }
 
-func TemplateParserFactory(sql string) (sqlparser.SqlParser, error) {
+func TemplateParserFactory(sql string) (parser.Parser, error) {
 	return template.CreateParser([]byte(sql))
 }
 

@@ -17,7 +17,7 @@
 package gobatis
 
 import (
-	"github.com/xfali/gobatis/v2/parsing/sqlparser"
+	"github.com/xfali/gobatis/v2/parsing/parser"
 )
 
 type Manager interface {
@@ -31,7 +31,7 @@ type Manager interface {
 
 	RegisterMapperFile(file string) error
 
-	FindDynamicStatementParser(sqlId string) (sqlparser.SqlParser, bool)
+	FindDynamicStatementParser(sqlId string) (parser.Parser, bool)
 
-	CreateDynamicStatementParser(sql string) (sqlparser.SqlParser, error)
+	CreateDynamicStatementParser(sql string) (parser.Parser, error)
 }

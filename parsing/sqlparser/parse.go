@@ -19,11 +19,11 @@ package sqlparser
 
 import (
 	"fmt"
+	"github.com/xfali/gobatis/v2/errors"
+	"github.com/xfali/gobatis/v2/parsing/parser"
 	"strconv"
 	"strings"
 	"unicode"
-
-	"github.com/xfali/gobatis/v2/errors"
 )
 
 const (
@@ -33,19 +33,8 @@ const (
 	DELETE = "delete"
 )
 
-type Metadata struct {
-	Action     string
-	PrepareSql string
-	Vars       []string
-	Params     []interface{}
-}
-
-type SqlParser interface {
-	ParseMetadata(driverName string, params ...interface{}) (*Metadata, error)
-}
-
-func SimpleParse(sql string) (*Metadata, error) {
-	ret := Metadata{}
+func SimpleParse(sql string) (*parser.Metadata, error) {
+	ret := parser.Metadata{}
 	sql = strings.Trim(sql, " ")
 	action := sql[:6]
 	action = strings.ToLower(action)
@@ -81,8 +70,8 @@ func SimpleParse(sql string) (*Metadata, error) {
 	return &ret, nil
 }
 
-func ParseWithParams(sql string, params ...interface{}) (*Metadata, error) {
-	ret := Metadata{}
+func ParseWithParams(sql string, params ...interface{}) (*parser.Metadata, error) {
+	ret := parser.Metadata{}
 	sql = strings.Trim(sql, " ")
 	action := sql[:6]
 	action = strings.ToLower(action)
@@ -136,8 +125,8 @@ func ParseWithParams(sql string, params ...interface{}) (*Metadata, error) {
 	return &ret, nil
 }
 
-func ParseWithParamMap(driverName, sql string, params map[string]interface{}) (*Metadata, error) {
-	ret := Metadata{}
+func ParseWithParamMap(driverName, sql string, params map[string]interface{}) (*parser.Metadata, error) {
+	ret := parser.Metadata{}
 	sql = strings.Trim(sql, " ")
 	action := sql[:6]
 	action = strings.ToLower(action)
@@ -148,7 +137,7 @@ func ParseWithParamMap(driverName, sql string, params map[string]interface{}) (*
 	firstIndex, lastIndex := -1, -1
 	var c string
 	var index int = 0
-	holder := SelectMarker(driverName)
+	holder := parser.SelectHolder(driverName)
 
 	for {
 		firstIndex = strings.Index(subStr, "{")
@@ -190,49 +179,6 @@ func ParseWithParamMap(driverName, sql string, params map[string]interface{}) (*
 	return &ret, nil
 }
 
-type Holder func(int) string
-
-var gHolderMap = map[string]Holder{
-	"mysql":    MysqlMarker,    //mysql
-	"postgres": PostgresMarker, //postgresql
-	"oci8":     Oci8Marker,     //oracle
-	"adodb":    MysqlMarker,    //sqlserver
-}
-
-func RegisterParamMarker(driverName string, h Holder) bool {
-	_, ok := GetMarker(driverName)
-	gHolderMap[driverName] = h
-	return ok
-}
-
-func SelectMarker(driverName string) Holder {
-	if v, ok := GetMarker(driverName); ok {
-		return v
-	}
-	return MysqlMarker
-}
-
-func GetMarker(driverName string) (Holder, bool) {
-	v, ok := gHolderMap[driverName]
-	return v, ok
-}
-
-func MysqlMarker(int) string {
-	return "?"
-}
-
-func PostgresMarker(i int) string {
-	return "$" + strconv.Itoa(i)
-}
-
-func Oci8Marker(i int) string {
-	return ":" + strconv.Itoa(i)
-}
-
-func interface2String(i interface{}) string {
-	return fmt.Sprintf("%v", i)
-}
-
 func findFirst(subStr string, char rune) int {
 	for i, r := range subStr {
 		//switch r {
@@ -250,6 +196,6 @@ func findFirst(subStr string, char rune) int {
 	return -1
 }
 
-func (md *Metadata) String() string {
-	return fmt.Sprintf("action: %s, prepareSql: %s, varmap: %v, params: %v", md.Action, md.PrepareSql, md.Vars, md.Params)
+func interface2String(i interface{}) string {
+	return fmt.Sprintf("%v", i)
 }
